@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Health Centers Doctors Duty Rota</title>
+  <style>
+    /* Color Variables */
+    :root{
+      --bg:#f7fafc; --card:#fff; --text:#0f172a; --muted:#4b5563;
+      --m-color:#e6fffa; --a-color:#fff7ed; --n-color:#eef2ff; --d-color:#fef3f3; --o-color:#f3f4f6; --po-color:#fff1f2;
+      --oa-color:#d0f0e0; --co-color:#d0f0e0; --al-color:#f0d0d0; --sl-color:#f0d0f0;
+      --accent:#0ea5a4;
+      --select-bg: #a0d8ef88;
+    }
+    [data-theme="dark"]{ --bg:#0b1220; --card:#071226; --text:#e6eef6; --muted:#9aa6b2; }
+
+    /* Base Styles */
+    body{ margin:0; font-family:Inter,Segoe UI,Helvetica,Arial; background:var(--bg); color:var(--text); }
+    .app{ max-width:1300px; margin:18px auto; padding:18px; }
+    header{ display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap: wrap; }
+    h1{ margin:0; font-size:1.2rem; }
+    .controls{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    select,input,button{ padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; background:var(--card); color:var(--text); }
+    .card{ background:var(--card); padding:12px; border-radius:12px; box-shadow:0 4px 18px rgba(8,15,20,0.06); margin-top:12px; }
+
+    /* Rota Table Styles */
+    .table-wrap{ overflow:auto; margin-top:12px; position:relative; max-height:calc(100vh - 240px); }
+    table.rota{ border-collapse:collapse; width:100%; table-layout:fixed; min-width:0; }
+    table.rota th, table.rota td{ border:1px solid rgba(2,6,23,0.06); padding:10px 6px; text-align:center; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; user-select:none; }
+    table.rota tbody td { padding-top:12px; padding-bottom:12px; min-height:42px; vertical-align:middle; }
+    table.rota th.name-col, table.rota td.name-col{ 
+        position:sticky; left:0; 
+        background:linear-gradient(180deg, rgba(255,255,255,0.6), rgba(255,255,255,0.9)); 
+        z-index:5; text-align:left; padding-left:12px; 
+        user-select:text;
+    }
+    [data-theme="dark"] table.rota th.name-col, [data-theme="dark"] table.rota td.name-col{ background:linear-gradient(180deg, rgba(7,18,38,0.6), rgba(7,18,38,0.9)); }
+
+    th.weekday{ font-weight:600; font-size:11px; color:var(--muted); }
+    td.shift{ min-width:0; cursor:pointer; }
+
+    /* Shift colors */
+    .shift-M{ background:var(--m-color); }
+    .shift-A{ background:var(--a-color); }
+    .shift-N{ background:var(--n-color); }
+    .shift-W{ background:var(--w-color); }
+    .shift-O{ background:var(--o-color); }
+    .shift-PO{ background:var(--po-color); }
+    .shift-OA{ background:var(--oa-color); }
+    .shift-CO{ background:var(--co-color); }
+    .shift-AL{ background:var(--al-color); }
+    .shift-SL{ background:var(--sl-color); }
+
+    /* Holiday style for Friday & Saturday */
+    .holiday{ opacity:0.9; }
+
+    /* summary columns hidden on small screens */
+    .summary-col{ background:transparent; }
+    @media (max-width:900px){
+      .summary-col{ display:none; }
+      table.rota th.name-col, table.rota td.name-col{ padding-left:10px; }
+    }
+
+    /* separator lines between header rows and data rows */
+    table.rota thead tr:first-child th { border-bottom:3px solid #cbd5e1; background:var(--card); }
+    table.rota thead tr:nth-child(2) th { border-bottom:2px solid #e6eaf0; background:var(--card); }
+    table.rota tbody tr:first-child td { border-top:2px solid #e6eaf0; }
+
+    table.rota thead tr:first-child th{ position:sticky; top:0; z-index:6; }
+    table.rota thead tr:nth-child(2) th{ position:sticky; top:36px; z-index:5; }
+
+    /* Selected cells highlight */
+    td.shift.selected {
+      outline: 3px solid var(--accent);
+      outline-offset: -3px;
+      background-color: var(--select-bg) !important;
+    }
+
+    /* Save button style */
+    #saveBtn {
+      background-color: var(--accent);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background-color 0.3s ease;
+    }
+    #saveBtn:hover {
+      background-color: #0b8389;
+    }
+
+    /* Legend styling */
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-size: 11px; /* smaller font */
+      align-items: center;
+    }
+    .leg {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .box {
+      width: 18px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(2,6,23,0.06);
+      flex-shrink: 0;
+    }
+
+    /* Fix header day text and date number visibility */
+    table.rota thead tr:nth-child(2) th > div {
+      white-space: nowrap;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      line-height: 1.2;
+      padding: 0 2px;
+    }
+
+    /* Fix shift cell text clipping */
+    table.rota td.shift {
+      white-space: nowrap;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      font-weight: 600;
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 8px 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app" id="app">
+    <header>
+      <div>
+        <h1>Health Centers Doctors Duty Rota</h1>
+        <div style="font-size:12px;color:var(--muted)">Week starts Sunday — Friday & Saturday are holidays</div>
+      </div>
+      <div class="controls">
+        <label class="flex"><span class="badge">Center</span>
+          <select id="centerSelect" aria-label="Select Health Center"></select>
+        </label>
+        <label class="flex"><span class="badge">Shifts/Day</span>
+          <select id="shiftsPerDay"><option value="1">1</option><option value="2" selected>2</option><option value="3">3</option></select>
+        </label>
+        <label class="flex"><span class="badge">Month</span>
+          <input type="month" id="monthPicker" />
+        </label>
+
+        <label class="flex"><input id="newDoctorName" placeholder="New doctor full name" style="min-width:160px" /></label>
+        <button id="addDoctorBtn">Add Doctor</button>
+        <label class="flex"><select id="removeDoctorSelect" aria-label="Select doctor to remove"></select></label>
+        <button id="removeDoctorBtn">Remove Doctor</button>
+
+        <button id="printRotaBtn">🖨️ Print Rota (A4 Landscape)</button>
+        <button id="saveBtn" title="Save current changes">💾 Save</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div><strong>Roster</strong> — Click a cell to change duty, Click+Drag to select multiple cells and tag them.</div>
+        <div style="font-size:12px;color:var(--muted)" id="status"></div>
+      </div>
+
+      <div class="table-wrap" id="tableWrap">
+        <table class="rota" id="rotaTable" tabindex="0" aria-label="Doctors duty rota table"></table>
+      </div>
+
+      <div class="legend card" style="margin-top:12px;">
+        <div style="font-weight:600; margin-right:8px">Legend</div>
+        <div class="leg"><div class="box shift-M"></div> M — Morning (7:30 am - 2:30 pm)</div>
+        <div class="leg"><div class="box shift-A"></div> A — Afternoon (2:30 pm - 9:30 pm)</div>
+        <div class="leg"><div class="box shift-N"></div> N — Night (9:30 am - 7:30 am)</div>
+        <div class="leg"><div class="box shift-W"></div> W — Weekend Duty (9:30 am - 4:30 pm)</div>
+        <div class="leg"><div class="box shift-O"></div> O — Off</div>
+        <div class="leg"><div class="box shift-PO"></div> PO — Pending Off</div>
+        <div class="leg"><div class="box shift-OA"></div> OA — Other Activities (Workshop, Attach, etc.)</div>
+        <div class="leg"><div class="box shift-AL"></div> AL — Annual Leave</div>
+        <div class="leg"><div class="box shift-SL"></div> SL — Short Leave</div>
+        <div class="leg"><div class="box shift-CO"></div> CO — Covering Other</div>
+      </div>
+
+      <div class="card notes">
+        <div style="font-weight:50">Administrative Notes: TO ALL DOCTORS ANY CHANGE OF DUTY WITH OTHER MUST BE ABROVED BY MOIC</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Data and helpers
+    const HEALTH_CENTERS = [
+      "Tosinat HC","Al Mazyunah Hospital","Harwib HC","Mitn HC","Matoura & Jijwal HC","Andat HC","Khadrafi HC","Dalkut HC","Mirbat Hospital","Tawi Atayr Hospital","Al Mashash HC","Marsodad HC","Muqshin HC","Rakhyut HC","Shahb Asayb HC","Hadbin HC","Sawb HC","Hasik HC","Sadah Hospital","Hijayf HC","Qayrun Hayriti HC","Taitam HC","Awqad HC","Al Dahareez HC","Salalah Al Jadidah HC","Salalah Al Gharbia HC","As Saadah HC","Kubut HC","Al Hallaniyat HC","Sharbthat HC","Shalim Hospital","Dimit Hc","A' Shuwaymiyah HC","Jibjat HC","Taqah Hospital","Madinat Al Haqq Hospital","Thumrayt Hospital","Aiboot HC","Dhahbun HC","Burbazoom HC","Al Hashman HC","Bithnah HC","Mudayy HC"
+    ];
+
+    let doctors = [
+      {id:1, name:'Dr. Aisha Al-Balushi', poCount:0},
+      {id:2, name:'Dr. Saif Al-Harthy', poCount:0},
+      {id:3, name:'Dr. Noor Al-Yaqoobi', poCount:0},
+      {id:4, name:'Dr. Hamad Al-Kindi', poCount:0},
+      {id:5, name:'Dr. Fatma Al-Lawati', poCount:0}
+    ];
+
+    const roster = {};
+    function toDateStr(date){ return date.toISOString().slice(0,10); }
+    function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+    function daysInMonth(year, month){ return new Date(year, month+1, 0).getDate(); }
+
+    // State and UI refs
+    const currentDate = new Date();
+    const currentMonthStr = currentDate.toISOString().slice(0,7);
+    const appState = {
+        center: HEALTH_CENTERS[0],
+        shiftsPerDay: 2,
+        month: currentMonthStr
+    };
+    const centerSelect = document.getElementById('centerSelect');
+    const shiftsPerDaySelect = document.getElementById('shiftsPerDay');
+    const monthPicker = document.getElementById('monthPicker');
+    const rotaTable = document.getElementById('rotaTable');
+    const status = document.getElementById('status');
+    const removeDoctorSelect = document.getElementById('removeDoctorSelect');
+    const newDoctorNameInput = document.getElementById('newDoctorName');
+    const tableWrap = document.getElementById('tableWrap');
+    const saveBtn = document.getElementById('saveBtn');
+
+    // Local Storage Keys
+    const STORAGE_KEY = 'healthCenterRotaAppState';
+    const STORAGE_DOCTORS_KEY = 'healthCenterRotaDoctors';
+    const STORAGE_ROSTER_KEY = 'healthCenterRotaRoster';
+
+    // Save/load functions
+    function saveToLocalStorage(){
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+        localStorage.setItem(STORAGE_DOCTORS_KEY, JSON.stringify(doctors));
+        localStorage.setItem(STORAGE_ROSTER_KEY, JSON.stringify(roster));
+        status.textContent = 'Changes saved ✔️';
+        setTimeout(() => {
+          if(status.textContent === 'Changes saved ✔️') status.textContent = '';
+        }, 2000);
+      } catch(e) {
+        console.error('Error saving to localStorage', e);
+        status.textContent = 'Error saving changes ❌';
+      }
+    }
+    function loadFromLocalStorage(){
+      try {
+        const savedState = localStorage.getItem(STORAGE_KEY);
+        const savedDoctors = localStorage.getItem(STORAGE_DOCTORS_KEY);
+        const savedRoster = localStorage.getItem(STORAGE_ROSTER_KEY);
+        if(savedState){
+          const parsedState = JSON.parse(savedState);
+          Object.assign(appState, parsedState);
+        }
+        if(savedDoctors){
+          const parsedDoctors = JSON.parse(savedDoctors);
+          if(Array.isArray(parsedDoctors) && parsedDoctors.length > 0){
+            doctors = parsedDoctors;
+          }
+        }
+        if(savedRoster){
+          const parsedRoster = JSON.parse(savedRoster);
+          if(parsedRoster && typeof parsedRoster === 'object'){
+            for(const key in roster) delete roster[key];
+            Object.assign(roster, parsedRoster);
+          }
+        }
+      } catch(e) {
+        console.error('Error loading from localStorage', e);
+      }
+    }
+
+    function populateCenterSelect(){
+      HEALTH_CENTERS.forEach(c=>{
+        const o = document.createElement('option'); o.value=c; o.textContent=c; centerSelect.appendChild(o);
+      });
+      centerSelect.value = appState.center;
+    }
+    function updateRemoveSelect(){
+      removeDoctorSelect.innerHTML='';
+      doctors.forEach(d=>{
+        const o = document.createElement('option'); o.value=d.id; o.textContent=d.name; removeDoctorSelect.appendChild(o);
+      });
+    }
+
+    function setColumnWidths(dateCount){
+      const summaryCount = 7;
+      const summaryWidth = 36;
+      // Reduced name column width to 140px
+      let nameWidth = 140;
+      let available = tableWrap.clientWidth - nameWidth - summaryCount * summaryWidth - 4;
+      let dayWidth = Math.floor(available / Math.max(1, dateCount));
+
+      if(dayWidth < 20){
+        // Further reduce name width to 120px if needed
+        nameWidth = 120;
+        available = tableWrap.clientWidth - nameWidth - summaryCount * summaryWidth - 4;
+        dayWidth = Math.floor(available / Math.max(1, dateCount));
+      }
+      if(dayWidth < 14){
+        const altSummary = 28;
+        available = tableWrap.clientWidth - nameWidth - summaryCount * altSummary - 4;
+        dayWidth = Math.floor(available / Math.max(1, dateCount));
+      }
+      dayWidth = Math.max(12, dayWidth);
+
+      document.querySelectorAll('th.name-col, td.name-col').forEach(nc=>{
+        nc.style.width = nameWidth + 'px';
+        nc.style.minWidth = nameWidth + 'px';
+        nc.style.maxWidth = nameWidth + 'px';
+      });
+
+      const dateHeaders = Array.from(document.querySelectorAll('thead tr:nth-child(2) th')).filter(th=>!th.classList.contains('name-col'));
+      const dayHeaders = dateHeaders.slice(0, dateHeaders.length - summaryCount);
+      dayHeaders.forEach(h => {
+        h.style.width = dayWidth + 'px';
+        h.style.minWidth = dayWidth + 'px';
+        h.style.maxWidth = dayWidth + 'px';
+      });
+
+      const tbody = rotaTable.querySelector('tbody');
+      if(tbody){
+        Array.from(tbody.rows).forEach(row=>{
+          for(let i=1;i<row.cells.length - summaryCount;i++){
+            const cell = row.cells[i];
+            cell.style.width = dayWidth + 'px';
+            cell.style.minWidth = dayWidth + 'px';
+            cell.style.maxWidth = dayWidth + 'px';
+          }
+          for(let j = row.cells.length - summaryCount; j < row.cells.length; j++){
+            const sCell = row.cells[j];
+            sCell.style.width = summaryWidth + 'px';
+            sCell.style.minWidth = summaryWidth + 'px';
+            sCell.style.maxWidth = summaryWidth + 'px';
+          }
+        });
+      }
+    }
+
+    function generateRoster(year, month, shiftsPerDay=2, center=HEALTH_CENTERS[0]){
+      for(const d of doctors) d.poCount = 0;
+      const shiftMap = {1:['M'],2:['M','A'],3:['M','A','N']};
+      const shifts = shiftMap[shiftsPerDay] || ['M','A'];
+      const daysCount = daysInMonth(year, month);
+      let globalIdx = 0;
+      for(let i=0;i<daysCount;i++){
+        const dt = new Date(year, month, i+1);
+        const dateStr = toDateStr(dt);
+        roster[dateStr] = roster[dateStr] || [];
+        roster[dateStr] = roster[dateStr].filter(a=> doctors.some(doc=> doc.id===a.doctorId));
+        const weekday = dt.getDay();
+        while(roster[dateStr].length < shifts.length){
+          const doc = doctors[ globalIdx % doctors.length ];
+          const slotIndex = roster[dateStr].length % shifts.length;
+          let duty = shifts[slotIndex];
+          if(weekday===5||weekday===6){ duty = (duty==='M' && shiftsPerDay===1) ? 'W' : 'O'; }
+          if(!roster[dateStr].some(a => a.doctorId === doc.id && a.duty === duty)){
+             roster[dateStr].push({doctorId:doc.id, duty, center});
+          }
+          globalIdx++;
+        }
+      }
+      for(const doc of doctors){ doc.poCount = 0; }
+      for(const date in roster){
+        roster[date].forEach(a=>{
+          if(a.duty==='PO'){
+            const doc = doctors.find(d=>d.id===a.doctorId);
+            if(doc) doc.poCount = (doc.poCount||0) + 1;
+          }
+        });
+      }
+      return roster;
+    }
+
+    function render(){
+      const [yearStr, monthStr] = appState.month.split('-');
+      const year = parseInt(yearStr);
+      const month = parseInt(monthStr) - 1;
+
+      const daysCount = daysInMonth(year, month);
+      for(let i=1; i<=daysCount; i++){
+        const dateStr = `${yearStr}-${monthStr.padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+        if(!roster[dateStr]){
+          generateRoster(year, month, appState.shiftsPerDay, appState.center);
+          break;
+        }
+      }
+
+      const dates = [];
+      for(let d=1; d<=daysCount; d++){
+        dates.push(new Date(year, month, d));
+      }
+
+      rotaTable.innerHTML='';
+      const thead = document.createElement('thead');
+
+      const monthRow = document.createElement('tr');
+      const nameThMonth = document.createElement('th'); nameThMonth.classList.add('name-col'); nameThMonth.textContent='';
+      monthRow.appendChild(nameThMonth);
+      const th = document.createElement('th'); th.colSpan = dates.length; th.textContent = dates[0].toLocaleString(undefined,{month:'long'}) + ' ' + year;
+      monthRow.appendChild(th);
+      const summaryCount = 7;
+      const summaryTh = document.createElement('th'); summaryTh.colSpan = summaryCount; summaryTh.classList.add('summary-col'); summaryTh.textContent = 'Summary';
+      monthRow.appendChild(summaryTh);
+      thead.appendChild(monthRow);
+
+      const dateRow = document.createElement('tr');
+      const nameTh = document.createElement('th'); nameTh.classList.add('name-col'); nameTh.textContent='Doctor Name';
+      dateRow.appendChild(nameTh);
+      dates.forEach(dt=>{
+        const th = document.createElement('th'); th.dataset.date = toDateStr(dt);
+        const day = dt.getDay();
+        const short = dt.toLocaleDateString(undefined,{day:'numeric'});
+        th.innerHTML = `<div>${short}</div><div class="weekday">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][day]}</div>`;
+        if(day===5||day===6){ th.classList.add('holiday'); }
+        dateRow.appendChild(th);
+      });
+      const sums = ['M','A','N','W','PO','O','Total'];
+      sums.forEach(s=>{ const th=document.createElement('th'); th.classList.add('summary-col'); th.textContent=s; dateRow.appendChild(th); });
+      thead.appendChild(dateRow);
+      rotaTable.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      doctors.forEach(doc=>{
+        const tr = document.createElement('tr');
+        const nameTd = document.createElement('td'); 
+        nameTd.classList.add('name-col'); 
+        nameTd.innerHTML = `<strong>${doc.name}</strong>`;
+        tr.appendChild(nameTd);
+
+        const counters = {M:0,A:0,N:0,W:0,PO:0,O:0};
+
+        dates.forEach(dt=>{
+          const dateStr = toDateStr(dt);
+          const td = document.createElement('td'); td.classList.add('shift'); td.dataset.date=dateStr; td.dataset.docId=doc.id;
+          const assigns = (roster[dateStr]||[]).filter(a=>a.doctorId===doc.id);
+          if(assigns.length===0){ 
+            td.textContent=''; 
+            counters.O++; 
+          }
+          else{
+            td.innerHTML = assigns.map(a=>a.duty).join(',');
+            assigns.forEach(a=>{
+              let duty = a.duty;
+              if(duty==='OA' || duty==='CO') duty = 'M';
+              if(duty==='AL' || duty==='SL') return;
+              if(counters[duty]!==undefined) counters[duty]++;
+            });
+            td.classList.add('shift-'+assigns[0].duty);
+          }
+          const w = dt.getDay(); if(w===5||w===6) td.classList.add('holiday');
+          tr.appendChild(td);
+        });
+
+        ['M','A','N','W','PO','O'].forEach(k=>{ const td=document.createElement('td'); td.classList.add('summary-col'); td.textContent=counters[k]||0; tr.appendChild(td); });
+        // Total count sum of M+A+N+W only
+        const total = (counters.M||0) + (counters.A||0) + (counters.N||0) + (counters.W||0);
+        const totalTd = document.createElement('td'); totalTd.classList.add('summary-col'); totalTd.textContent = total; tr.appendChild(totalTd);
+
+        tbody.appendChild(tr);
+      });
+      rotaTable.appendChild(tbody);
+
+      let statusText = `${doctors.length} doctors — ${dates.length} days shown`;
+      if(dates.length>0) {
+        const monthName = dates[0].toLocaleString(undefined,{month:'long', year:'numeric'});
+        statusText = `${appState.center} — Duty Rota for ${monthName}`;
+      }
+      status.textContent = statusText;
+
+      setTimeout(()=> setColumnWidths(dates.length), 0);
+    }
+
+    // Apply duty to cell by date and doctor id
+    function applyDutyToCellByDateDoc(date, docId, duty){
+      roster[date] = roster[date] || [];
+      const idx = roster[date].findIndex(a=>a.doctorId==docId);
+      const docObj = doctors.find(d=>d.id==docId);
+      if(idx>-1){
+        const prev = roster[date][idx].duty;
+        roster[date][idx].duty = duty;
+        if(prev==='PO' && duty!=='PO') docObj.poCount = Math.max(0, docObj.poCount-1);
+        if(prev!=='PO' && duty==='PO') docObj.poCount = (docObj.poCount||0)+1;
+      } else {
+        roster[date].push({doctorId:docId, duty, center:appState.center});
+        if(duty==='PO'){ docObj.poCount=(docObj.poCount||0)+1; }
+      }
+    }
+
+    // Selection and drag logic
+    let isSelecting = false;
+    let selectionStartCell = null;
+    let selectedCells = new Set();
+
+    function clearSelection(){
+      selectedCells.forEach(cell => cell.classList.remove('selected'));
+      selectedCells.clear();
+    }
+
+    function selectCellsBetween(startCell, endCell){
+      clearSelection();
+      if(!startCell || !endCell) return;
+      const allCells = Array.from(document.querySelectorAll('td.shift'));
+      const startIndex = allCells.indexOf(startCell);
+      const endIndex = allCells.indexOf(endCell);
+      if(startIndex === -1 || endIndex === -1) return;
+      const [minIndex, maxIndex] = startIndex < endIndex ? [startIndex, endIndex] : [endIndex, startIndex];
+      for(let i = minIndex; i <= maxIndex; i++){
+        allCells[i].classList.add('selected');
+        selectedCells.add(allCells[i]);
+      }
+    }
+
+    rotaTable.addEventListener('mousedown', (e) => {
+      if(e.target.tagName === 'TD' && e.target.classList.contains('shift')){
+        e.preventDefault();
+        isSelecting = true;
+        selectionStartCell = e.target;
+        clearSelection();
+        e.target.classList.add('selected');
+        selectedCells.add(e.target);
+      }
+    });
+
+    rotaTable.addEventListener('mouseover', (e) => {
+      if(isSelecting && e.target.tagName === 'TD' && e.target.classList.contains('shift')){
+        selectCellsBetween(selectionStartCell, e.target);
+      }
+    });
+
+    document.addEventListener('mouseup', (e) => {
+      if(isSelecting){
+        isSelecting = false;
+        if(selectedCells.size > 0){
+          let tag = prompt("Enter duty tag to apply to selected cells (e.g. M, A, W, O, PO, OA, CO, AL, SL):", "M");
+          if(tag){
+            tag = tag.trim().toUpperCase();
+            const allowedTags = ['M','A','N','W','O','PO','OA','CO','AL','SL'];
+            if(!allowedTags.includes(tag)){
+              alert("Invalid tag entered. No changes applied.");
+              clearSelection();
+              return;
+            }
+            selectedCells.forEach(cell => {
+              const date = cell.dataset.date;
+              const docId = parseInt(cell.dataset.docId);
+              applyDutyToCellByDateDoc(date, docId, tag);
+            });
+            clearSelection();
+            render();
+            saveToLocalStorage();
+          } else {
+            clearSelection();
+          }
+        }
+      }
+    });
+
+    rotaTable.addEventListener('dragstart', e => e.preventDefault());
+
+    // Controls event handlers
+    document.getElementById('addDoctorBtn').addEventListener('click', ()=>{
+      const name = newDoctorNameInput.value.trim(); if(!name){ alert('Please enter the full name of the doctor to add.'); return; }
+      const id = doctors.length? Math.max(...doctors.map(d=>d.id))+1 : 1; 
+      doctors.push({id,name,poCount:0});
+      newDoctorNameInput.value='';
+      updateRemoveSelect();
+      render();
+      saveToLocalStorage();
+    });
+
+    document.getElementById('removeDoctorBtn').addEventListener('click', ()=>{
+      const id = parseInt(removeDoctorSelect.value);
+      if(!id){ alert('Select a doctor to remove'); return; }
+      const idx = doctors.findIndex(d=>d.id===id);
+      if(idx===-1){ alert('Doctor not found'); return; }
+      const removed = doctors.splice(idx,1)[0];
+      Object.keys(roster).forEach(date=>{
+        roster[date] = roster[date].filter(a=> a.doctorId !== removed.id);
+      });
+      updateRemoveSelect();
+      render();
+      saveToLocalStorage();
+    });
+
+    centerSelect.addEventListener('change', (e)=>{ appState.center = e.target.value; render(); saveToLocalStorage(); });
+    shiftsPerDaySelect.addEventListener('change', (e)=>{ appState.shiftsPerDay = parseInt(e.target.value); render(); saveToLocalStorage(); });
+    monthPicker.addEventListener('change', (e)=>{ 
+      appState.month = e.target.value; 
+      render(); 
+      saveToLocalStorage();
+    });
+
+    document.getElementById('printRotaBtn').addEventListener('click', async ()=>{
+      let original = {...appState};
+      // Default to 2 weeks print range since printWeeks removed
+      const weeks = 2;
+      let start;
+      if(appState.month){
+        const [y,m] = appState.month.split('-');
+        start = new Date(parseInt(y), parseInt(m)-1, 1);
+      } else {
+        const [y,m] = (new Date()).toISOString().slice(0,7).split('-');
+        start = new Date(parseInt(y), parseInt(m)-1, 1);
+      }
+      const end = addDays(start, weeks*7 - 1);
+      appState.view = 'range';
+      appState.rangeStart = toDateStr(start);
+      appState.rangeEnd = toDateStr(end);
+      render();
+      await new Promise(r => setTimeout(r, 120));
+      const originalOverflow = tableWrap.style.overflow;
+      tableWrap.style.overflow = 'visible';
+      window.print();
+      tableWrap.style.overflow = originalOverflow;
+      Object.assign(appState, original);
+      setTimeout(()=> render(), 120);
+    });
+
+    saveBtn.addEventListener('click', () => {
+      saveToLocalStorage();
+    });
+
+    // Init
+    loadFromLocalStorage();
+    populateCenterSelect();
+    updateRemoveSelect();
+
+    centerSelect.value = appState.center;
+    shiftsPerDaySelect.value = appState.shiftsPerDay;
+    monthPicker.value = appState.month || currentMonthStr;
+
+    render();
+
+    window.addEventListener('resize', ()=> {
+      clearTimeout(window._rotaResizeTimer);
+      window._rotaResizeTimer = setTimeout(()=> render(), 120);
+    });
+  </script>
+</body>
+</html>
